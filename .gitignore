@@ -2,3 +2,5 @@
 *.o
 *.lst
 *.elf
+*.pyc
+**/__pycache__/
