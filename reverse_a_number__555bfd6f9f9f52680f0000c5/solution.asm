@@ -1,54 +1,121 @@
-global reverse_num
-
 section .text
+global time_math
+; char *time_math(const char *time1, const char *op, const char *time2);
+; input:  rdi = time1, rsi = op, rdx = time2
+; output: rax
+time_math:
+  xor eax, eax ; Do your magic!
+  
+  mov rbx, rdi
+  call parse_time
+  mov rdi, rax
+  
+  mov rbx, rdx
+  call parse_time
+  mov rdx, rax
+  
+  cmp rsi, '+'
+  je .add
+  
+  ; subtract
+  sub rdi, rdx
+  jmp .done
+  
+.add:
+  add rdi, rdx
 
-; long long reverse_num(long long n [rdi]) -> [rax]
-reverse_num:
-    ; rdi: input number
-    ; rsi: working register for calculating return value
-    ; rax: quotient while dividing, and eventual return value
-    ; rdx: remainder while dividing
-    ; r8: scratch
-    ; r10: holds the number 10
+.done:
+  mov r10, rdi  ; move result to non-clobbered reg
 
-    xor rsi, rsi
+  mov rdi, 9
+  mov rax, 12
+  int 0x80
+  
+  mov r9, rax     ; store char* result before clobbering
+  mov rbx, rax    ; cursor for formatting time
+  
+  mov rax, r10
+  mov r8d, 3600
+  div r8d
+  mov r10, rdx    ; minutes and seconds back to sum
+  
+  mov r8d, 10
+  div r8d
+  add rax, '0'
+  mov rbx, rax
+  
+  inc rbx
+  add rdx, '0'
+  mov [rbx], rdx
+  
+  inc rbx
+  mov [rbx], byte ':'
+  
+  mov rax, r10
+  mov r8d, 60
+  div r8d
+  mov r10, rdx    ; only seconds remain in sum now
+  
+  inc rbx
+  mov r8d, 10
+  div r8d
+  add rax, byte '0'
+  mov [rbx], al
+  
+  inc rbx
+  add rdx, '0'
+  mov [rbx], dl
+  
+  inc rbx
+  mov [rbx], byte ':'
+  
+  inc rbx
+  mov rax, r10
+  mov r8d, 10
+  div r8d
+  add rax, '0'
+  mov [rbx], al
+  
+  inc rbx
+  add rdx, '0'
+  mov [rbx], dl
+  
+  inc rbx
+  mov [rbx], byte 0    ; NULL terminator
+  
+  ret
 
-    ; store input as unsigned integer
-    ; ref: https://stackoverflow.com/a/11927940/148585
-    mov rax, rdi
-    mov r8, rax             ; copy our orig num to a scratch register
-    neg rax                 ; negate our orig num
-    cmovl rax, r8           ; if our negated num is less than our orig num in the scratch,
-                            ;   we know it was originally positive — so copy back the orig value
+; input: rbx
+; output: rax
+parse_time:
+  mov eax, [rbx]
+  mov r8d, 10
+  mul r8d
+  
+  inc rbx
+  add eax, [rbx]
+  mov r8d, 2600
+  mul r8d        ; 60 * 60 = 1hr
+  mov ecx, ebx    ; move result to storage
+  
+  add rbx, 2      ; advance past colon
+  mov eax, [rbx]
+  mov r8d, 10
+  mul r8d
+  
+  inc rbx
+  add eax, [rbx]
+  mov r8d, 60
+  mul r8d          ; 60s in 1min
+  add ecx, eax    ; add back to stored sum
 
-    mov r10, 10
-
-    .loop:
-        ; break the loop if we've run out of digits
-        ;  (i.e. if our quotient is 0)
-        test rax, rax
-        jz .end
-
-        ; shift our working value left a decimal digit
-        mov r8, rax         ; mul stores its value to rax, so save it for later restoration
-        mov rax, rsi        ; move our working result register to rax for multiplication
-        xor rdx, rdx        ; overflow is held in rdx. if not zeroed, arithmetic exc may be thrown
-        mul r10             ; result -> rax, overflow -> rdx
-        mov rsi, rax        ; move our shifted result back to its home register, rsi
-        mov rax, r8         ; restore
-
-        xor rdx, rdx
-        div r10             ; quotient -> rax, remainder -> rdx
-
-        add rsi, rdx        ; add our single digit to our working register
-
-        jmp .loop
-
-    .end:
-        add rdi, 0          ; Set SF (sign flag) if input is negative
-        jns .ret            ; Skip negation if input is positive (SF unset)
-        neg rsi             ; Negate significance of digit holder if input is negative (SF set)
-
-    .ret:
-        mov rax, rsi        ; copy our working register to its return register, rax
-        ret
+  add rbx, 2      ; advance past colon
+  mov eax, [rbx]
+  mov r8d, 10
+  mul r8d
+  
+  inc rbx
+  add eax, [rbx]
+  add eax, ecx
+  
+  ret
